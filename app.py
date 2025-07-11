@@ -1,7 +1,22 @@
 import streamlit as st
+import os
+import json
+import requests
 
 # Configuration de la page
 st.set_page_config(page_title="WeFlow", layout="centered", initial_sidebar_state="collapsed")
+
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+
+def call_webhook(text: str, mode: str):
+    """Send the text and mode to the configured webhook."""
+    if not WEBHOOK_URL:
+        return {"mode": mode, "text": text}
+    try:
+        response = requests.post(WEBHOOK_URL, json={"text": text, "mode": mode}, timeout=5)
+        return response.json()
+    except Exception as exc:
+        return {"error": str(exc), "mode": mode, "text": text}
 
 # Masquer le menu, le footer et l’en-tête Streamlit par défaut
 hide_streamlit_style = """
@@ -21,7 +36,7 @@ body {
     transform: translate(-50%, -50%);
     font-size: 6rem;
     font-weight: 600;
-    color: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.03);
     pointer-events: none;
     user-select: none;
     text-transform: uppercase;
@@ -33,7 +48,7 @@ body {
 }
 .brand {
     font-size: 4rem;
-    letter-spacing: 0.1rem;
+    letter-spacing: 0.15em;
     margin: 0;
 }
 .plans {
@@ -42,8 +57,10 @@ body {
     margin: 1rem 0;
     display: flex;
     justify-content: center;
-    gap: 1.5rem;
+    gap: 2rem;
     font-size: 0.9rem;
+    font-weight: 400;
+    text-transform: uppercase;
     color: rgba(0, 0, 0, 0.7);
 }
 .input-zone textarea {
@@ -52,9 +69,11 @@ body {
     height: 80px !important;
     margin-top: 2rem;
     font-size: 1rem;
-    border: none;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 128, 255, 0.15);
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 128, 255, 0.15);
+    backdrop-filter: blur(10px);
     padding: 1rem;
     resize: none;
     outline: none;
@@ -65,26 +84,30 @@ body {
     gap: 1rem;
     margin-top: 2rem;
 }
-.option-button {
+.stButton>button {
     padding: 0.5rem 1rem;
-    background-color: transparent;
-    border: 1px solid rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    font-size: 0.8rem;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid #d0e5ff;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 300;
     letter-spacing: 0.1rem;
     cursor: pointer;
+    backdrop-filter: blur(4px);
     transition: background-color 0.2s, color 0.2s;
     text-transform: uppercase;
 }
-.option-button.selected {
-    background-color: rgba(0, 128, 255, 0.1);
-    color: #0050b3;
+.stButton>button:hover {
+    background-color: rgba(208, 229, 255, 0.2);
 }
 .card {
-    background-color: rgba(0, 128, 255, 0.05);
+    background-color: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     padding: 1rem;
     margin-top: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 128, 255, 0.1);
+    backdrop-filter: blur(6px);
 }
 </style>
 """
@@ -105,19 +128,25 @@ st.markdown(plans_html, unsafe_allow_html=True)
 
 # Boutons de sélection de mode
 modes = ["TEST PREFIL", "ENRICH ENTERPRISE", "AUTRE OPTION"]
-selected_mode = None
+if "mode" not in st.session_state:
+    st.session_state.mode = modes[0]
+
+st.markdown('<div class="options">', unsafe_allow_html=True)
 cols = st.columns(len(modes))
 for idx, mode in enumerate(modes):
     if cols[idx].button(mode, key=mode):
-        selected_mode = mode
-display_mode = selected_mode or modes[0]
+        st.session_state.mode = mode
+st.markdown('</div>', unsafe_allow_html=True)
+
+display_mode = st.session_state.mode
 
 # Zone de saisie
 user_text = st.text_area("", placeholder="Entrez du texte ici...", key="input_zone")
 
 # Affichage des cartes de résultat
 if user_text:
-    st.markdown(f'<div class="card">Mode : {display_mode}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="card">Texte reçu : {user_text}</div>', unsafe_allow_html=True)
+    result = call_webhook(user_text, display_mode)
+    pretty = json.dumps(result, ensure_ascii=False, indent=2)
+    st.markdown(f'<div class="card"><pre>{pretty}</pre></div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
