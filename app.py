@@ -9,7 +9,6 @@ st.set_page_config(page_title="WeFlow", layout="centered", initial_sidebar_state
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 def call_webhook(text: str, mode: str):
-    """Send the text and mode to the configured webhook."""
     if not WEBHOOK_URL:
         return {"mode": mode, "text": text}
     try:
@@ -18,7 +17,7 @@ def call_webhook(text: str, mode: str):
     except Exception as exc:
         return {"error": str(exc), "mode": mode, "text": text}
 
-# Masquer le menu, le footer et l’en-tête Streamlit par défaut
+# Style personnalisé
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
@@ -40,7 +39,8 @@ body {
     pointer-events: none;
     user-select: none;
     text-transform: uppercase;
-    width: 100%; text-align: center;
+    width: 100%;
+    text-align: center;
 }
 .container {
     text-align: center;
@@ -57,8 +57,10 @@ body {
     margin: 1rem 0;
     display: flex;
     justify-content: center;
-    gap: 1.5rem;
+    gap: 2rem;
     font-size: 0.9rem;
+    font-weight: 400;
+    text-transform: uppercase;
     color: rgba(0, 0, 0, 0.7);
 }
 .input-zone textarea {
@@ -67,11 +69,11 @@ body {
     height: 80px !important;
     margin-top: 2rem;
     font-size: 1rem;
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 128, 255, 0.15);
-    backdrop-filter: blur(6px);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 128, 255, 0.15);
+    backdrop-filter: blur(10px);
     padding: 1rem;
     resize: none;
     outline: none;
@@ -84,10 +86,11 @@ body {
 }
 .option-button {
     padding: 0.5rem 1rem;
-    background-color: rgba(255, 255, 255, 0.3);
-    border: 1px solid rgba(0, 128, 255, 0.3);
-    border-radius: 4px;
-    font-size: 0.8rem;
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 1px solid #d0e5ff;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 300;
     letter-spacing: 0.1rem;
     cursor: pointer;
     backdrop-filter: blur(4px);
@@ -95,7 +98,7 @@ body {
     text-transform: uppercase;
 }
 .option-button.selected {
-    background-color: rgba(0, 128, 255, 0.15);
+    background-color: rgba(208, 229, 255, 0.4);
     color: #0050b3;
 }
 .card {
@@ -111,7 +114,7 @@ body {
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Watermark central
+# Watermark
 st.markdown('<div class="watermark">JSO WEFLOW</div>', unsafe_allow_html=True)
 
 # Conteneur principal
@@ -124,7 +127,7 @@ st.markdown('<h1 class="brand">WEFLOW</h1>', unsafe_allow_html=True)
 plans_html = '<ul class="plans"><li>AVIANNEXT</li><li>EXTRAFIN</li><li>PLAN C</li></ul>'
 st.markdown(plans_html, unsafe_allow_html=True)
 
-# Boutons de sélection de mode
+# Boutons
 modes = ["TEST PREFIL", "ENRICH ENTERPRISE", "AUTRE OPTION"]
 selected_mode = None
 cols = st.columns(len(modes))
@@ -136,7 +139,7 @@ display_mode = selected_mode or modes[0]
 # Zone de saisie
 user_text = st.text_area("", placeholder="Entrez du texte ici...", key="input_zone")
 
-# Affichage des cartes de résultat
+# Réponse du webhook
 if user_text:
     result = call_webhook(user_text, display_mode)
     pretty = json.dumps(result, ensure_ascii=False, indent=2)
