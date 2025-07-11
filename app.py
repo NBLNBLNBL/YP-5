@@ -9,7 +9,6 @@ st.set_page_config(page_title="WeFlow", layout="centered", initial_sidebar_state
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 def call_webhook(text: str, mode: str):
-    """Send the text and mode to the configured webhook."""
     if not WEBHOOK_URL:
         return {"mode": mode, "text": text}
     try:
@@ -18,7 +17,7 @@ def call_webhook(text: str, mode: str):
     except Exception as exc:
         return {"error": str(exc), "mode": mode, "text": text}
 
-# Masquer le menu, le footer et l’en-tête Streamlit par défaut
+# Style personnalisé
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
@@ -40,7 +39,8 @@ body {
     pointer-events: none;
     user-select: none;
     text-transform: uppercase;
-    width: 100%; text-align: center;
+    width: 100%;
+    text-align: center;
 }
 .container {
     text-align: center;
@@ -48,7 +48,7 @@ body {
 }
 .brand {
     font-size: 4rem;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.3rem;
     margin: 0;
 }
 .plans {
@@ -114,7 +114,7 @@ body {
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Watermark central
+# Watermark
 st.markdown('<div class="watermark">JSO WEFLOW</div>', unsafe_allow_html=True)
 
 # Conteneur principal
@@ -127,7 +127,7 @@ st.markdown('<h1 class="brand">WEFLOW</h1>', unsafe_allow_html=True)
 plans_html = '<ul class="plans"><li>AVIANNEXT</li><li>EXTRAFIN</li><li>PLAN C</li></ul>'
 st.markdown(plans_html, unsafe_allow_html=True)
 
-# Boutons de sélection de mode
+# Boutons
 modes = ["TEST PREFIL", "ENRICH ENTERPRISE", "AUTRE OPTION"]
 selected_mode = None
 cols = st.columns(len(modes))
@@ -139,7 +139,7 @@ display_mode = selected_mode or modes[0]
 # Zone de saisie
 user_text = st.text_area("", placeholder="Entrez du texte ici...", key="input_zone")
 
-# Affichage des cartes de résultat
+# Réponse du webhook
 if user_text:
     result = call_webhook(user_text, display_mode)
     pretty = json.dumps(result, ensure_ascii=False, indent=2)
