@@ -1,100 +1,73 @@
+# app.py
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Webhooks
-WEBHOOK_URL_TEXT = "https://nbjhhh.app.n8n.cloud/webhook/default-text"  # <-- remplace si besoin
-WEBHOOK_URL_PREFIL = "https://nbjhhh.app.n8n.cloud/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
+# ── WEBHOOKS ──────────────────────────────────────────────────────────────────
+WEBHOOK_TEXT   = "https://nbjhhh.app.n8n.cloud/webhook/default-text"  # texte normal
+WEBHOOK_PREFIL = "https://nbjhhh.app.n8n.cloud/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"  # préfil (3 car.)
 
-st.set_page_config(page_title="", layout="centered")
+# ── PAGE ───────────────────────────────────────────────────────────────────────
+st.set_page_config(layout="centered", page_title="")
 
-# Inject CSS + Google Font
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Avenir+Next:wght@100&display=swap');
-html, body, [class*="css"] {
-  font-family: 'Avenir Next', sans-serif !important;
-  font-weight: 100;
-}
-input:focus, textarea:focus, select:focus {
-  outline: none !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-button {
-  border: none;
-  background: none;
-  font-size: 14px;
-  font-family: 'Avenir Next', sans-serif;
-  font-weight: 100;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  cursor: pointer;
-  margin: 8px auto;
-  display: block;
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Avenir+Next:wght@100&display=swap');
 
-# Toggle Prefil mode
-if 'prefil' not in st.session_state:
+    html, body, [class*="css"] { margin:0; padding:0; background:#fff; font-family:'Avenir Next',sans-serif; font-weight:100; }
+    *:focus { outline:none !important; }
+
+    /* zone éditable sans cadre */
+    .zone { font-size:3rem; text-align:center; line-height:1.2; width:80vw; max-width:600px; margin:0 auto; border:none; }
+
+    /* boutons custom */
+    .btn { display:block; width:200px; margin:8px auto; background:transparent; border:none; cursor:pointer; font-size:0.9rem; letter-spacing:0.12em; text-transform:uppercase; font-family:'Avenir Next',sans-serif; font-weight:100; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ── SESSION STATE ─────────────────────────────────────────────────────────────
+if "prefil" not in st.session_state:
     st.session_state.prefil = False
 
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Activer Préfil"):
+# ── BOUTONS ────────────────────────────────────────────────────────────────────
+col = st.columns(1)[0]
+with col:
+    if st.button("Activer Préfil", key="on", help="Mode envoi tous les 3 caractères", type="secondary"):
         st.session_state.prefil = True
-with col2:
-    if st.button("Désactiver Préfil"):
+    if st.button("Désactiver Préfil", key="off", help="Mode envoi après 3,5 s", type="secondary"):
         st.session_state.prefil = False
 
-# Choisir le webhook selon le mode
-current_webhook = WEBHOOK_URL_PREFIL if st.session_state.prefil else WEBHOOK_URL_TEXT
-
-# HTML INPUT invisible mais actif
-components.html(f"""
-<div style="display:flex;align-items:center;justify-content:center;height:50vh">
-  <input id="input" 
-         autofocus 
-         style="
-           font-size: 2rem;
-           font-family: 'Avenir Next', sans-serif;
-           font-weight: 100;
-           letter-spacing: .5rem;
-           background: transparent;
-           border: none;
-           text-align: center;
-           width: 60vw;
-         "
-         placeholder=""/>
+# ── HTML / JS ──────────────────────────────────────────────────────────────────
+components.html(
+    f"""
+<div style='display:flex;justify-content:center;align-items:center;height:50vh;'>
+  <div id='zone' class='zone' contenteditable='true' spellcheck='false'>&nbsp;</div>
 </div>
+
 <script>
-  const inp = document.getElementById('input');
-  let timer;
-  let lastSent = "";
-  let prefil = {str(st.session_state.prefil).lower()};
+  const zone = document.getElementById('zone');
+  let timer; let last = ""; const prefilMode = {str(st.session_state.prefil).lower()};
 
-  document.body.addEventListener('keydown', () => {{ inp.focus(); }});
+  // focus global
+  document.addEventListener('keydown', () => zone.focus());
 
-  function send(val) {{
-    if (!val.trim()) return;
-    fetch("{current_webhook}", {{
-      method: "POST",
-      headers: {{ 'Content-Type': 'application/json' }},
-      body: JSON.stringify({{ value: val }})
-    }});
-  }}
+  function send(url, txt) {{ fetch(url, {{method:'POST', headers:{{'Content-Type':'application/json'}}, body:JSON.stringify({{body:txt}})}}); }}
 
-  inp.addEventListener('input', () => {{
-    clearTimeout(timer);
-    const val = inp.value;
-    if (!prefil) {{
-      timer = setTimeout(() => send(val), 3500);
-    }} else {{
-      if (val.length % 3 === 0 && val !== lastSent) {{
-        send(val);
-        lastSent = val;
+  zone.addEventListener('input', () => {{
+      const txt = zone.innerText.replace(/\u00A0/g,' ').trim();
+      clearTimeout(timer);
+
+      if (prefilMode && txt.length >=3 && txt.length%3===0 && txt!==last) {{
+          last = txt;
+          send('{WEBHOOK_PREFIL}', txt);
       }}
-    }}
+      if (!prefilMode) {{
+          timer = setTimeout(()=>{{ send('{WEBHOOK_TEXT}', txt); zone.innerText=''; last=''; }}, 3500);
+      }}
   }});
 </script>
-""", height=400)
+""",
+    height=450,
+)
