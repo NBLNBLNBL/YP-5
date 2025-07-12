@@ -1,96 +1,100 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import requests
 
-st.set_page_config(
-    layout="centered",
-    initial_sidebar_state="collapsed",
-    page_title="",
-    page_icon="",
-)
+# Webhooks
+WEBHOOK_URL_TEXT = "https://nbjhhh.app.n8n.cloud/webhook/default-text"  # <-- remplace si besoin
+WEBHOOK_URL_PREFIL = "https://nbjhhh.app.n8n.cloud/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
 
-# Webhook URLs
-WEBHOOK_PREFIL = "https://nbjhhh.app.n8n.cloud/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
-WEBHOOK_SIMPLE = "https://nbjhhh.app.n8n.cloud/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
+st.set_page_config(page_title="", layout="centered")
 
-# Mode de pré-remplissage (toggle)
-prefil_mode = st.button("📤 Préfil")
+# Inject CSS + Google Font
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Avenir+Next:wght@100&display=swap');
+html, body, [class*="css"] {
+  font-family: 'Avenir Next', sans-serif !important;
+  font-weight: 100;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+button {
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-family: 'Avenir Next', sans-serif;
+  font-weight: 100;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin: 8px auto;
+  display: block;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# Interface personnalisée
-st.markdown(
-    """
-    <style>
-    #MainMenu, header, footer { visibility: hidden; }
-    html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        background: white;
-        font-family: 'Avenir Next', sans-serif;
-    }
-    input[type="text"] {
-        font-family: 'Avenir Next', sans-serif;
-        font-weight: 100;
-        font-size: 2.5rem;
-        border: none;
-        outline: none;
-        background: transparent;
-        text-align: center;
-        width: 100%;
-        letter-spacing: .1rem;
-    }
-    input[type="text"]:focus {
-        outline: none;
-    }
-    </style>
-    <link href="https://fonts.googleapis.com/css2?family=Avenir+Next:wght@100&display=swap" rel="stylesheet">
-    """,
-    unsafe_allow_html=True,
-)
+# Toggle Prefil mode
+if 'prefil' not in st.session_state:
+    st.session_state.prefil = False
 
-# HTML input + JS webhook logic
-html = f"""
-<div style="display:flex;justify-content:center;align-items:center;height:70vh">
-  <input id="inp" type="text" placeholder="..." autofocus />
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Activer Préfil"):
+        st.session_state.prefil = True
+with col2:
+    if st.button("Désactiver Préfil"):
+        st.session_state.prefil = False
+
+# Choisir le webhook selon le mode
+current_webhook = WEBHOOK_URL_PREFIL if st.session_state.prefil else WEBHOOK_URL_TEXT
+
+# HTML INPUT invisible mais actif
+components.html(f"""
+<div style="display:flex;align-items:center;justify-content:center;height:50vh">
+  <input id="input" 
+         autofocus 
+         style="
+           font-size: 2rem;
+           font-family: 'Avenir Next', sans-serif;
+           font-weight: 100;
+           letter-spacing: .5rem;
+           background: transparent;
+           border: none;
+           text-align: center;
+           width: 60vw;
+         "
+         placeholder=""/>
 </div>
 <script>
-  const inp = document.getElementById('inp');
-  let timer = null;
-  let previous = "";
+  const inp = document.getElementById('input');
+  let timer;
+  let lastSent = "";
+  let prefil = {str(st.session_state.prefil).lower()};
 
-  function send(value) {{
-    const body = {{ body: value }};
-    fetch("{WEBHOOK_SIMPLE}", {{
+  document.body.addEventListener('keydown', () => {{ inp.focus(); }});
+
+  function send(val) {{
+    if (!val.trim()) return;
+    fetch("{current_webhook}", {{
       method: "POST",
-      headers: {{ "Content-Type": "application/json" }},
-      body: JSON.stringify(body)
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{ value: val }})
     }});
   }}
 
-  function sendPrefil(value) {{
-    const body = {{ data: [{{ companyName: value }}] }};
-    fetch("{WEBHOOK_PREFIL}", {{
-      method: "POST",
-      headers: {{ "Content-Type": "application/json" }},
-      body: JSON.stringify(body)
-    }});
-  }}
-
-  inp.addEventListener("input", () => {{
+  inp.addEventListener('input', () => {{
     clearTimeout(timer);
     const val = inp.value;
-    timer = setTimeout(() => {{
-      if ({str(prefil_mode).lower()}) {{
-        if (val.length >= 3 && val !== previous) {{
-          sendPrefil(val);
-          previous = val;
-        }}
-      }} else {{
+    if (!prefil) {{
+      timer = setTimeout(() => send(val), 3500);
+    }} else {{
+      if (val.length % 3 === 0 && val !== lastSent) {{
         send(val);
+        lastSent = val;
       }}
-    }}, 3500);
+    }}
   }});
 </script>
-"""
-
-components.html(html, height=600)
+""", height=400)
