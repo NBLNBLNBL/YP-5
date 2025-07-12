@@ -1,6 +1,3 @@
 # requirements.txt
-
 streamlit
-pytube
-beautifulsoup4
 requests
