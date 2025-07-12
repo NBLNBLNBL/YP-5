@@ -1,148 +1,159 @@
+# app.py
 import streamlit as st
-import os
-import json
+import streamlit.components.v1 as components
 import requests
+import os
+from pytube import YouTube
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
 
-# Configuration de la page
-st.set_page_config(page_title="WeFlow", layout="centered", initial_sidebar_state="collapsed")
+# ─── CONFIG ────────────────────────────────────────────────────────────────────
+WEBHOOK_URL = ""  # TODO : remplacez par votre URL de webhook
 
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+DOWNLOAD_DIR = "downloads"
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-def call_webhook(text: str, mode: str):
-    if not WEBHOOK_URL:
-        return {"mode": mode, "text": text}
+# ─── FONCTIONS DE TÉLÉCHARGEMENT ────────────────────────────────────────────────
+def download_youtube(url):
+    """Télécharge la meilleure résolution MP4 d'une vidéo YouTube."""
+    yt = YouTube(url)
+    stream = yt.streams.filter(progressive=True, file_extension="mp4") \
+                       .order_by("resolution").desc().first()
+    stream.download(output_path=DOWNLOAD_DIR)
+
+def download_site(url, visited=None):
+    """Crawl basique du domaine et téléchargement des assets (images, scripts, CSS…)."""
+    if visited is None:
+        visited = set()
+    domain = urlparse(url).netloc
+    if url in visited:
+        return
+    visited.add(url)
+
     try:
-        response = requests.post(WEBHOOK_URL, json={"text": text, "mode": mode}, timeout=5)
-        return response.json()
-    except Exception as exc:
-        return {"error": str(exc), "mode": mode, "text": text}
+        r = requests.get(url)
+        r.raise_for_status()
+    except Exception:
+        return
 
-# Style personnalisé
-hide_streamlit_style = """
-<style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-body {
-    margin: 0;
-    font-family: 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
-    background-color: #ffffff;
-    color: #000000;
-}
-.watermark {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 6rem;
-    font-weight: 600;
-    color: rgba(0, 0, 0, 0.03);
-    pointer-events: none;
-    user-select: none;
-    text-transform: uppercase;
-    width: 100%;
-    text-align: center;
-}
-.container {
-    text-align: center;
-    padding-top: 4rem;
-}
-.brand {
-    font-size: 4rem;
-    letter-spacing: 0.3rem;
-    margin: 0;
-}
-.plans {
-    list-style: none;
-    padding: 0;
-    margin: 1rem 0;
-    display: flex;
-    justify-content: center;
-    gap: 2rem;
-    font-size: 0.9rem;
-    font-weight: 400;
-    text-transform: uppercase;
-    color: rgba(0, 0, 0, 0.7);
-}
-.input-zone textarea {
-    width: 90% !important;
-    max-width: 500px;
-    height: 80px !important;
-    margin-top: 2rem;
-    font-size: 1rem;
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0, 128, 255, 0.15);
-    backdrop-filter: blur(10px);
-    padding: 1rem;
-    resize: none;
-    outline: none;
-}
-.options {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    margin-top: 2rem;
-}
-.option-button {
-    padding: 0.5rem 1rem;
-    background-color: rgba(255, 255, 255, 0.2);
-    border: 1px solid #d0e5ff;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 300;
-    letter-spacing: 0.1rem;
-    cursor: pointer;
-    backdrop-filter: blur(4px);
-    transition: background-color 0.2s, color 0.2s;
-    text-transform: uppercase;
-}
-.option-button.selected {
-    background-color: rgba(208, 229, 255, 0.4);
-    color: #0050b3;
-}
-.card {
-    background-color: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    padding: 1rem;
-    margin-top: 1rem;
-    box-shadow: 0 2px 8px rgba(0, 128, 255, 0.1);
-    backdrop-filter: blur(6px);
-}
-</style>
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    # Assets à télécharger
+    for tag in soup.find_all(("img", "script", "link")):
+        attr = "src" if tag.name in ("img", "script") else "href"
+        src = tag.get(attr)
+        if not src:
+            continue
+        file_url = urljoin(url, src)
+        if urlparse(file_url).netloc != domain:
+            continue
+        try:
+            res = requests.get(file_url)
+            res.raise_for_status()
+            filename = os.path.join(DOWNLOAD_DIR, os.path.basename(file_url))
+            with open(filename, "wb") as f:
+                f.write(res.content)
+        except Exception:
+            pass
+
+    # Crawl des liens internes
+    for a in soup.find_all("a", href=True):
+        link = urljoin(url, a["href"])
+        if urlparse(link).netloc == domain:
+            download_site(link, visited)
+
+# ─── CONFIGURATION DE LA PAGE ───────────────────────────────────────────────────
+st.set_page_config(page_title="Minimalist Streamlit App", layout="wide")
+
+# ─── STYLES CSS ────────────────────────────────────────────────────────────────
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Avenir+Next:wght@200;400&display=swap');
+    html, body, [class*="css"] { font-family: 'Avenir Next', sans-serif; }
+    .container {
+        background: white;
+        border-radius: 24px;
+        padding: 16px;
+    }
+    #customInput {
+        width: 100%;
+        padding: 20px;
+        font-size: 2rem;
+        font-weight: 200;
+        border: none;
+        outline: none;
+        background: white;
+        color: black;
+    }
+    ::placeholder { letter-spacing: 1rem; color: #888; }
+    .btn-text {
+        text-transform: uppercase;
+        font-size: 0.8rem;
+        font-weight: 200;
+        background: rgba(255,255,255,0.3);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        border: none;
+        padding: 6px 12px;
+        margin: 4px;
+        cursor: pointer;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ─── HTML + JS EMBEDDÉ ────────────────────────────────────────────────────────
+html = f"""
+<div class="container">
+  <input type="text" id="customInput" placeholder=". . ." autofocus />
+  <div style="margin-top:12px;">
+    <span class="btn-text" onclick="sendText('ACTION1')">Action1</span>
+    <span class="btn-text" onclick="sendText('ACTION2')">Action2</span>
+  </div>
+</div>
+<script>
+let timer;
+const input = document.getElementById("customInput");
+
+function sendText(text) {{
+    const payload = {{ text }};
+    if ("{WEBHOOK_URL}") {{
+        fetch("{WEBHOOK_URL}", {{
+            method: "POST",
+            headers: {{ "Content-Type": "application/json" }},
+            body: JSON.stringify(payload)
+        }});
+    }} else {{
+        console.log("Ready to send:", payload);
+    }}
+}}
+
+input.addEventListener("keyup", (e) => {{
+    clearTimeout(timer);
+    if (e.key === "Enter") {{
+        sendText(input.value);
+        input.value = "";
+    }} else {{
+        timer = setTimeout(() => {{
+            sendText(input.value);
+            input.value = "";
+        }}, 3000);
+    }}
+}});
+</script>
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+components.html(html, height=160)
 
-# Watermark
-st.markdown('<div class="watermark">JSO WEFLOW</div>', unsafe_allow_html=True)
+st.write("🎥 Entrez une URL YouTube ou l’URL d’un site web ci-dessous pour lancer le téléchargement :")
 
-# Conteneur principal
-st.markdown('<div class="container">', unsafe_allow_html=True)
-
-# Titre
-st.markdown('<h1 class="brand">WEFLOW</h1>', unsafe_allow_html=True)
-
-# Plans
-plans_html = '<ul class="plans"><li>AVIANNEXT</li><li>EXTRAFIN</li><li>PLAN C</li></ul>'
-st.markdown(plans_html, unsafe_allow_html=True)
-
-# Boutons
-modes = ["TEST PREFIL", "ENRICH ENTERPRISE", "AUTRE OPTION"]
-selected_mode = None
-cols = st.columns(len(modes))
-for idx, mode in enumerate(modes):
-    if cols[idx].button(mode, key=mode):
-        selected_mode = mode
-display_mode = selected_mode or modes[0]
-
-# Zone de saisie
-user_text = st.text_area("", placeholder="Entrez du texte ici...", key="input_zone")
-
-# Réponse du webhook
-if user_text:
-    result = call_webhook(user_text, display_mode)
-    pretty = json.dumps(result, ensure_ascii=False, indent=2)
-    st.markdown(f'<div class="card"><pre>{pretty}</pre></div>', unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
+url = st.text_input("URL à télécharger", "")
+if url:
+    st.write(f"Tentative de traitement de : {url}")
+    if "youtube.com" in url or "youtu.be" in url:
+        download_youtube(url)
+        st.success("Vidéo YouTube téléchargée !")
+    else:
+        download_site(url)
+        st.success("Site web téléchargé ! (assets et pages internes)")
