@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 
 # ─── CONFIGURATION ─────────────────────────────────────────────────────────────
 # Remplacez <BASE_URL_N8N> par l'URL de votre instance n8n (sans slash final)
-BASE_N8N_URL = "https://<BASE_URL_N8N>"
+BASE_N8N_URL = "https://<VOTRE_BASE_URL_N8N>"
 WEBHOOK_PATH = "webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
 MAIN_WEBHOOK = f"{BASE_N8N_URL}/{WEBHOOK_PATH}"
 
@@ -66,32 +66,28 @@ components.html(
     const inp = document.getElementById('voidInput');
     let timer;
     // Focus auto et recentrage à chaque frappe
-    document.addEventListener('keydown', () => {
+    document.addEventListener('keydown', () => {{
       if (document.activeElement !== inp) inp.focus();
       clearTimeout(timer);
       timer = setTimeout(send, 5000);
-    });
+    }});
     // Envoi sur Enter
-    inp.addEventListener('keyup', (e) => {
-      if (e.key === 'Enter') {
+    inp.addEventListener('keyup', (e) => {{
+      if (e.key === 'Enter') {{
         clearTimeout(timer);
         send();
-      }
-    });
+      }}
+    }});
     // Envoi de la valeur
-    function send() {
+    function send() {{
       const text = inp.value.trim();
       if (!text) return;
-      fetch("{MAIN_WEBHOOK}", {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: text })
-      });
+      fetch("{MAIN_WEBHOOK}", {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify({{ body: text }}) }});
       inp.value = '';
-    }
+    }}
   </script>
 </body>
 </html>
-""", 
+""",
     height=600
 )
