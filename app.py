@@ -2,13 +2,16 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ─── CONFIGURATION ─────────────────────────────────────────────────────────────
-# Remplacez <BASE_URL_N8N> par l'URL de votre instance n8n (sans slash final)
-BASE_N8N_URL = "https://<BASE_URL_N8N>"
+# ───────────────────────────────────
+# 1 CONFIG
+# ───────────────────────────────────
+BASE_N8N_URL = "https://<TON_INSTANCE_N8N>"          # ← remplace !
 WEBHOOK_PATH = "webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
 MAIN_WEBHOOK = f"{BASE_N8N_URL}/{WEBHOOK_PATH}"
 
-# ─── INITIALISATION STREAMLIT ──────────────────────────────────────────────────
+# ───────────────────────────────────
+# 2 PAGE STREAMLIT
+# ───────────────────────────────────
 st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -16,22 +19,23 @@ st.set_page_config(
     page_icon=""
 )
 
-# ─── CSS ULTRA‑MINIMAL ─────────────────────────────────────────────────────────
+# ───────────────────────────────────
+# 3 CSS 100 % MINIMAL
+# ───────────────────────────────────
 st.markdown(
     """
     <style>
       #MainMenu, header, footer { visibility: hidden; }
       html, body { margin:0; padding:0; height:100%; width:100%; overflow:hidden; }
-      body>div { display:flex!important; justify-content:center; align-items:center; height:100vh; width:100vw; background:#fff; }
+      body>div { display:flex !important; justify-content:center; align-items:center;
+                 height:100vh; width:100vw; background:#fff; }
 
-      /* Champ totalement invisible (aucune bordure, aucune ombre, même en focus) */
+      /* Champ SANS bordure / ombre, même en focus */
       #voidInput, #voidInput:focus {
-        -webkit-appearance:none;
-        appearance:none;
-        border:none !important;
-        outline:none !important;
-        box-shadow:none !important;
+        -webkit-appearance:none; appearance:none;
+        border:none !important; outline:none !important; box-shadow:none !important;
         background:transparent !important;
+
         font-family:'Avenir Next',sans-serif;
         font-weight:200;
         font-size:2rem;
@@ -46,25 +50,29 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ─── CODE HTML/JS ─────────────────────────────────────────────────────────────
-html_code = f"""
-<!DOCTYPE html>
-<html><head><meta charset='utf-8'></head><body>
-  <input id='voidInput' type='text' autofocus>
-  <script>
-    const inp = document.getElementById('voidInput');
-    let timer;
-    // Capture toute frappe pour (re)focaliser et minuterie d'envoi
-    document.addEventListener('keydown', () => { inp.focus(); clearTimeout(timer); timer = setTimeout(send, 5000); });
-    inp.addEventListener('keyup', e => { if(e.key==='Enter'){ clearTimeout(timer); send(); }});
-    function send(){
-      const txt = inp.value.trim();
-      if(!txt) return;
-      fetch('{MAIN_WEBHOOK}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:txt})});
-      inp.value='';
-    }
-  </script>
-</body></html>
-"""
+# ───────────────────────────────────
+# 4 HTML + JS
+# ───────────────────────────────────
+html_code = (
+    "<!DOCTYPE html><html><head><meta charset='utf-8'></head><body>"
+    "  <input id='voidInput' type='text' autocomplete='off' autocorrect='off' spellcheck='false' autofocus>"
+    "  <script>"
+    "    const inp = document.getElementById('voidInput');"
+    "    let timer;"
+    "    document.addEventListener('keydown', () => { inp.focus(); clearTimeout(timer); timer = setTimeout(send, 5000); });"
+    "    inp.addEventListener('keyup', e => { if (e.key === 'Enter') { clearTimeout(timer); send(); } });"
+    "    function send() {"
+    "      const txt = inp.value.trim();"
+    "      if (!txt) return;"
+    f"      fetch('{MAIN_WEBHOOK}', {{"
+    "        method:'POST',"
+    "        headers:{'Content-Type':'application/json'},"
+    "        body: JSON.stringify({ body: txt })"
+    "      }});"
+    "      inp.value='';"
+    "    }"
+    "  </script>"
+    "</body></html>"
+)
 
 components.html(html_code, height=600)
