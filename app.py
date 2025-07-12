@@ -1,3 +1,4 @@
+```python
 # app.py
 import streamlit as st
 import streamlit.components.v1 as components
@@ -5,10 +6,8 @@ import streamlit.components.v1 as components
 # ─── CONFIGURATION ─────────────────────────────────────────────────────────────
 # Remplacez par l'URL racine de votre instance n8n (sans slash final)
 BASE_N8N_URL       = "https://<VOTRE_BASE_URL_N8N>"
-MAIN_WEBHOOK_PATH = "webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
-# Webhooks complets
-MAIN_WEBHOOK       = f"{BASE_N8N_URL}/{MAIN_WEBHOOK_PATH}"
-RESPONSIVE_WEBHOOK = f"{BASE_N8N_URL}/{MAIN_WEBHOOK_PATH}"
+WEBHOOK_PATH       = "webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
+MAIN_WEBHOOK       = f"{BASE_N8N_URL}/{WEBHOOK_PATH}"
 
 # ─── INITIALISATION STREAMLIT ──────────────────────────────────────────────────
 st.set_page_config(
@@ -22,12 +21,11 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      /* Masquer toute UI native Streamlit */
+      /* Cacher chrome Streamlit */
       #MainMenu, header, footer { visibility: hidden; }
       html, body { margin:0; padding:0; height:100%; width:100%; overflow:hidden; }
-
       /* Conteneur full-screen centré */
-      body > div { 
+      body > div {
         display: flex !important;
         justify-content: center;
         align-items: center;
@@ -35,125 +33,67 @@ st.markdown(
         width: 100vw;
         background: #fff;
       }
-
-      /* Input “vide” */
+      /* Input « vide » sans cadre ni style par défaut */
       #voidInput {
+        -webkit-appearance: none;
+        appearance: none;
         font-family: 'Avenir Next', sans-serif;
         font-weight: 200;
         font-size: 2rem;
-        width: 80vw; max-width: 400px;
-        border: none;
-        outline: none;
-        background: transparent;
+        width: 80vw;
+        max-width: 400px;
+        border: none !important;
+        outline: none !important;
+        background: transparent !important;
         text-align: center;
         caret-color: #007AFF;
+        color: #000;
       }
-
-      /* Bouton Préfil discrètement placé */
-      #prefilBtn {
-        position: absolute;
-        top: 16px; right: 16px;
-        font-family: 'Avenir Next', sans-serif;
-        font-weight: 200;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        background: transparent;
-        border: none;
-        color: rgba(0,0,0,0.3);
-        cursor: pointer;
-        transition: color 0.2s ease;
-      }
-      #prefilBtn:hover {
-        color: rgba(0,0,0,0.6);
-      }
-
-      /* Toast éphémère */
-      #toast {
-        position: fixed;
-        bottom: 10vh;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(255,255,255,0.8);
-        backdrop-filter: blur(10px);
-        font-family: 'Avenir Next', sans-serif;
-        font-weight: 200;
-        font-size: 1rem;
-        padding: 8px 16px;
-        border-radius: 12px;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-      }
-      #toast.show { opacity: 1; }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Avenir+Next:wght@200&display=swap" rel="stylesheet">
     """,
     unsafe_allow_html=True
 )
 
-# ─── COMPOSANT HTML / JS ───────────────────────────────────────────────────────
+# ─── COMPOSANT HTML / JS ULTRA-MINIMALISTE ────────────────────────────────────
 components.html(f"""
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"/></head><body>
+<html><head><meta charset=\"utf-8\"/></head><body>
 
-  <!-- Bouton Préfil -->
-  <button id="prefilBtn">Préfil</button>
-
-  <!-- Zone de saisie “vide” -->
-  <input id="voidInput" type="text" autofocus />
-
-  <!-- Toast éphémère -->
-  <div id="toast">Mode pré-remplissage activé</div>
+  <input id=\"voidInput\" type=\"text\" autofocus />
 
   <script>
-    const inp      = document.getElementById('voidInput');
-    const prefil   = document.getElementById('prefilBtn');
-    const toast    = document.getElementById('toast');
-    let timer, toastTimer;
+    const inp = document.getElementById('voidInput');
+    let timer;
 
-    // Fonction générique d'envoi
-    function postTo(url, payload) {{
-      fetch(url, {{
-        method: 'POST',
-        headers: {{ 'Content-Type': 'application/json' }},
-        body: JSON.stringify(payload)
-      }});
-    }}
-
-    // 1) Envoyer le texte saisi (Enter ou 5s inactivité)
-    function scheduleSend() {{
-      clearTimeout(timer);
-      timer = setTimeout(() => {{
-        const t = inp.value.trim();
-        if (!t) return;
-        postTo("{MAIN_WEBHOOK}", {{ body: t }});
-        inp.value = '';
-      }}, 5000);
-    }}
-
-    inp.addEventListener('keydown', () => {{
-      // focus auto dès que l'utilisateur commence à taper
+    // Focus auto et recentrage à chaque frappe
+    document.addEventListener('keydown', () => {
       if (document.activeElement !== inp) inp.focus();
-      scheduleSend();
-    }});
+      clearTimeout(timer);
+      timer = setTimeout(send, 5000);
+    });
 
-    inp.addEventListener('keyup', (e) => {{
-      if (e.key === 'Enter') {{
+    // Envoi sur Enter
+    inp.addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') {
         clearTimeout(timer);
-        const t = inp.value.trim();
-        if (!t) return;
-        postTo("{MAIN_WEBHOOK}", {{ body: t }});
-        inp.value = '';
-      }}
-    }});
+        send();
+      }
+    });
 
-    // 2) Mode Préfil : envoi immédiat, toast 2s
-    prefil.addEventListener('click', () => {{
-      postTo("{RESPONSIVE_WEBHOOK}", {{ mode: 'prefil' }});
-      toast.classList.add('show');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {{ toast.classList.remove('show'); }}, 2000);
-    }});
+    // Envoi de la valeur
+    function send() {
+      const text = inp.value.trim();
+      if (!text) return;
+      fetch("{MAIN_WEBHOOK}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: text })
+      });
+      inp.value = '';
+    }
   </script>
 
 </body></html>
 """, height=600)
+```
