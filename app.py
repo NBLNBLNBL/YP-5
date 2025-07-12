@@ -2,13 +2,14 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# CONFIG
-WEBHOOK = "https://<TON_INSTANCE_N8N>/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
+# ─── CONFIG ────────────────────────────────────────────────────────────────────
+BASE_N8N_URL = "https://<TON_INSTANCE_N8N>"
+WEBHOOK_SIMPLE = f"{BASE_N8N_URL}/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
+WEBHOOK_PREFIL = f"{BASE_N8N_URL}/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"  # identique ici mais pourrait différer
 
-# INIT PAGE
+# ─── PAGE STREAMLIT ────────────────────────────────────────────────────────────
 st.set_page_config(layout="centered", page_title="", initial_sidebar_state="collapsed")
 
-# STYLES
 st.markdown("""
 <style>
   #MainMenu, header, footer { visibility: hidden; }
@@ -23,64 +24,81 @@ st.markdown("""
     justify-content: center;
     align-items: center;
     height: 100vh;
+    width: 100vw;
   }
-
-  .fakeInput {
+  #editZone {
     font-family: 'Avenir Next', sans-serif;
     font-weight: 200;
     font-size: 2rem;
+    line-height: 1.5;
     text-align: center;
     outline: none;
     border: none;
     background: transparent;
     color: black;
-    caret-color: #007AFF;
     width: 80vw;
-    max-width: 500px;
+    max-width: 600px;
+    padding: 0;
+    margin: 0;
+    caret-color: #007AFF;
+  }
+  #editZone:focus {
+    outline: none !important;
+    border: none !important;
   }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Avenir+Next:wght@200&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
-# HTML + JS avec div éditable (sans input HTML)
+# ─── HTML + JS ─────────────────────────────────────────────────────────────────
 components.html(f"""
-<div contenteditable="true" class="fakeInput" id="editZone" spellcheck="false" autofocus></div>
+<div contenteditable="true" id="editZone" spellcheck="false"></div>
 
 <script>
   const zone = document.getElementById('editZone');
   let timer;
+  let lastSent = '';
+  let charCounter = 0;
 
-  // Clean et recentrage
-  function sendText(txt) {{
-    if (!txt.trim()) return;
-    fetch("{WEBHOOK}", {{
+  function sendTextToWebhook(url, payload) {{
+    fetch(url, {{
       method: "POST",
       headers: {{ "Content-Type": "application/json" }},
-      body: JSON.stringify({{ body: txt }})
+      body: JSON.stringify(payload)
     }});
-    zone.innerText = "";
   }}
 
-  // Envoi auto 5s
+  // Envoi après 3.5s d'inactivité (webhook simple)
   zone.addEventListener('input', () => {{
     clearTimeout(timer);
     timer = setTimeout(() => {{
-      sendText(zone.innerText);
-    }}, 5000);
+      sendTextToWebhook("{WEBHOOK_SIMPLE}", {{ body: zone.innerText.trim() }});
+    }}, 3500);
   }});
 
-  // Envoi Enter
+  // Envoi Enter immédiat (webhook simple)
   zone.addEventListener('keydown', (e) => {{
     if (e.key === 'Enter') {{
       e.preventDefault();
       clearTimeout(timer);
-      sendText(zone.innerText);
+      sendTextToWebhook("{WEBHOOK_SIMPLE}", {{ body: zone.innerText.trim() }});
+      zone.innerText = "";
+      charCounter = 0;
+      lastSent = '';
     }}
   }});
 
-  // Focus dès interaction
-  window.addEventListener('keydown', () => {{
-    zone.focus();
+  // Préfil — envoie tous les 3 caractères (webhook préfilé)
+  zone.addEventListener('keyup', () => {{
+    const current = zone.innerText.trim();
+    const delta = current.length - lastSent.length;
+    if (delta >= 3) {{
+      sendTextToWebhook("{WEBHOOK_PREFIL}", {{ body: current }});
+      lastSent = current;
+    }}
   }});
+
+  // Focus auto
+  window.addEventListener('keydown', () => {{ zone.focus(); }});
 </script>
 """, height=600)
