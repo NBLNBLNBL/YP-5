@@ -1,68 +1,107 @@
-# app.py
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="", page_icon="", layout="centered", initial_sidebar_state="collapsed")
+# Webhooks
+DEFAULT_WEBHOOK = "https://your-default-webhook-url"
+PREFIL_WEBHOOK = "https://nbjhhh.app.n8n.cloud/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c"
 
+# Préfil mode (session)
+if "prefil" not in st.session_state:
+    st.session_state.prefil = False
+
+# Style global
+st.set_page_config(page_title="", page_icon="", layout="wide")
 st.markdown("""
-<style>
-    /* Suppression UI Streamlit */
-    #MainMenu, footer, header { visibility: hidden; }
-
-    /* Fond blanc total */
-    body, html, .block-container {
-        background-color: white;
+    <style>
+    body, html {
+        background: white;
         margin: 0;
         padding: 0;
-    }
-
-    /* Police Avenir Next extra light */
-    @import url('https://fonts.googleapis.com/css2?family=Avenir+Next:wght@200&display=swap');
-
-    .input-style {
         font-family: 'Avenir Next', sans-serif;
         font-weight: 200;
         font-size: 2rem;
-        line-height: 2.5rem;
-        letter-spacing: 0.3rem;
-        color: black;
-        border: none;
-        outline: none;
-        background: transparent;
+        letter-spacing: .3rem;
+        overflow-x: hidden;
         text-align: center;
-        width: 80vw;
-        max-width: 800px;
-        margin: auto;
-        display: block;
-        padding: 2rem;
-        caret-color: black;
     }
-</style>
+    input:focus, textarea:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    #text-input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: black;
+        font-family: 'Avenir Next', sans-serif;
+        font-weight: 200;
+        font-size: 2.5rem;
+        text-align: center;
+        letter-spacing: .4rem;
+    }
+    .btn {
+        font-family: 'Avenir Next', sans-serif;
+        font-weight: 200;
+        font-size: 1rem;
+        text-transform: uppercase;
+        border: none;
+        background: none;
+        cursor: pointer;
+        margin: 20px auto;
+        display: block;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
-components.html("""
-<input type="text" id="invisibleInput" class="input-style" placeholder="" autofocus />
+# Boutons Préfil
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Activer Préfil"):
+        st.session_state.prefil = True
+with col2:
+    if st.button("Désactiver Préfil"):
+        st.session_state.prefil = False
 
+# Zone HTML
+webhook_url = PREFIL_WEBHOOK if st.session_state.prefil else DEFAULT_WEBHOOK
+js = f"""
 <script>
-  const input = document.getElementById("invisibleInput");
-  let timer = null;
-  let isPrefil = false;
+let buffer = "";
+let timer = null;
 
-  // URLs Webhooks (changer selon les besoins)
-  const TEXT_HOOK = "https://nbjhhh.app.n8n.cloud/webhook/texte";
-  const PREFIL_HOOK = "https://nbjhhh.app.n8n.cloud/webhook/225784dc-80f4-4184-a0df-ae6eee1fb74c";
+function send(text) {{
+    fetch("{webhook_url}", {{
+        method: "POST",
+        headers: {{ "Content-Type": "application/json" }},
+        body: JSON.stringify({{ message: text }})
+    }});
+}}
 
-  function sendToWebhook(text) {
-    const url = isPrefil ? PREFIL_HOOK : TEXT_HOOK;
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: text })
-    });
-  }
+document.addEventListener("keydown", function(e) {{
+    buffer += e.key;
+    document.getElementById("display").textContent = buffer;
 
-  document.addEventListener("keydown", e => {
-    input.focus();
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      const value = input.value.trim();
+    if (timer) clearTimeout(timer);
+
+    // Envoi selon mode
+    if ({'true' if st.session_state.prefil else 'false'}) {{
+        if (buffer.length % 3 === 0) {{
+            send(buffer);
+        }}
+    }} else {{
+        timer = setTimeout(() => {{
+            send(buffer);
+        }}, 3500);
+    }}
+}});
+</script>
+"""
+
+html = """
+<div style="height:70vh;display:flex;align-items:center;justify-content:center;">
+  <div id="display"></div>
+</div>
+""" + js
+
+components.html(html, height=500)
